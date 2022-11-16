@@ -87,6 +87,7 @@ class Linear(nn.Linear):
                         fan_in=None,
                         negative_slope=math.sqrt(5),
                         nonlinearity='leaky_relu'))
+
         if bias_attr is None:
             if global_init_type == "kaiming_uniform":
                 bias_attr = paddle.ParamAttr(

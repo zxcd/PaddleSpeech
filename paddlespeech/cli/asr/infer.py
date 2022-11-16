@@ -50,6 +50,12 @@ class ASRExecutor(BaseExecutor):
         self.parser.add_argument(
             '--input', type=str, default=None, help='Audio file to recognize.')
         self.parser.add_argument(
+            '--output',
+            type=str,
+            default='text',
+            choices=['text', 'vec'],
+            help='Choose output type for ssl task')
+        self.parser.add_argument(
             '--model',
             type=str,
             default='conformer_u2pp_wenetspeech',

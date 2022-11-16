@@ -72,7 +72,14 @@ class CTCDecoderBase(nn.Layer):
         self.blank_id = blank_id
         self.odim = odim
         self.dropout = nn.Dropout(dropout_rate)
-        self.ctc_lo = Linear(enc_n_units, self.odim)
+        
+        # self.ctc_lo = Linear(enc_n_units, self.odim)
+        ### 加载ctc 参数
+        self.ctc_lo = Linear(enc_n_units, 21128)
+        import torch
+        state = torch.load('/home/zhangtianhao/workspace/PaddleSpeech/examples/aishell/asr2/duiqi/ctc.bin')
+        self.ctc_lo.set_state_dict(state)
+
         if isinstance(reduction, bool):
             reduction_type = "sum" if reduction else "none"
         else:
@@ -96,6 +103,11 @@ class CTCDecoderBase(nn.Layer):
         """
         logits = self.ctc_lo(self.dropout(hs_pad))
         loss = self.criterion(logits, ys_pad, hlens, ys_lens)
+        # import numpy as np
+        # xx = loss
+        # np.save('/home/zhangtianhao/workspace/PaddleSpeech/examples/aishell/asr2/duiqi/paddle_data', xx.cpu().numpy())
+        # print(xx)
+        # exit()
         return loss
 
     def softmax(self, eouts: paddle.Tensor, temperature: float=1.0):

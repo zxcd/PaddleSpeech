@@ -25,8 +25,8 @@ source ${MAIN_ROOT}/utils/parse_options.sh || exit 1;
 #fi
 
 python3 utils/format_rsl.py \
-    --origin_ref data/manifest.test-clean.raw \
-    --trans_ref data/manifest.test-clean.text
+    --origin_ref data/manifest.test.raw \
+    --trans_ref data/manifest.test.text
 
 
 for type in ctc_greedy_search; do

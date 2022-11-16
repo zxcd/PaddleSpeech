@@ -13,50 +13,63 @@ from paddlespeech.s2t.models.wav2vec2.modules.VanillaNN import VanillaNN
 from paddlespeech.s2t.modules.ctc import CTCDecoderBase as CTC
 from paddlespeech.s2t.utils.ctc_utils import remove_duplicates_and_blank
 from paddlespeech.s2t.utils.utility import log_add
-
+from paddlespeech.s2t.models.wav2vec2.processing.speech_augmentation import SpecAugment
+from paddlespeech.s2t.modules.initializer import DefaultInitializerContext
 
 class Wav2vec2ASR(nn.Layer):
     def __init__(self, config: dict):
         super().__init__()
+        init_type = config.get("init_type", None)
+        with DefaultInitializerContext(init_type):
+            self.config = config
+            wav2vec2_config = Wav2Vec2ConfigPure(config)
+            wav2vec2 = Wav2Vec2Model(wav2vec2_config)
+            self.normalize_wav = config.normalize_wav
+            self.output_norm = config.output_norm
+            if hasattr(config, 'spec_augment'):
+                self.spec_augment = SpecAugment(config.spec_augment)
 
-        wav2vec2_config = Wav2Vec2ConfigPure(config)
-        wav2vec2 = Wav2Vec2Model(wav2vec2_config)
-        model_dict = paddle.load(config.wav2vec2_params_path)
-        wav2vec2.set_state_dict(model_dict)
-        self.normalize_wav = config.normalize_wav
-        self.output_norm = config.output_norm
-        if config.freeze_wav2vec2:
-            wav2vec2.eval()
-            for parm in wav2vec2.parameters():
-                parm.trainable = False
-        self.wav2vec2 = wav2vec2
-        self.enc = VanillaNN(
-            input_shape=[None, None, wav2vec2_config.hidden_size],
-            activation=nn.LeakyReLU,
-            dnn_blocks=config.dnn_blocks,
-            dnn_neurons=config.dnn_neurons)
-        self.ctc = CTC(odim=config.output_dim,
-                       enc_n_units=config.dnn_neurons,
-                       blank_id=config.blank_id,
-                       dropout_rate=config.ctc_dropout_rate,
-                       reduction='mean')
+            if config.freeze_wav2vec2:
+                wav2vec2.eval()
+                for parm in wav2vec2.parameters():
+                    parm.trainable = False
+            self.wav2vec2 = wav2vec2
+            self.enc = VanillaNN(**config.enc)
+            self.ctc = CTC(**config.ctc, odim=config.output_dim, batch_average=False, reduction='mean')
 
-    def forward(self, wav, wavs_lens_rate, target, target_lens_rate):
+    def forward(self, wav, wavs_lens_rate, target, target_lens):
         if self.normalize_wav:
-            wav = F.layer_norm(wav, wav.shape[1:])
+            wav = F.layer_norm(wav, wav.shape)
+
         # Extract wav2vec output
         out = self.wav2vec2(wav)[0]
+        
         # We normalize the output if required
         if self.output_norm:
-            out = F.layer_norm(out, out.shape[1:])
-        feats = out
+            out = F.layer_norm(out, out.shape)
+        
+        # if self.training and hasattr(self.config, 'spec_augment'):
+        feats = self.spec_augment(out)
+        # else:
+        #     feats = out
 
         x = self.enc(feats)
-        x_lens = (wavs_lens_rate * x.shape[1]).round().astype(paddle.int64)
-        target_lens = (target_lens_rate *
-                       target.shape[1]).round().astype(paddle.int64)
 
+        x_lens = (wavs_lens_rate * x.shape[1]).round().astype(paddle.int64)
+
+        # sb target_lens = rate 
+        target_lens = (target_lens *
+                       target.shape[1]).round().astype(paddle.int64)
+        print(x, x_lens)
+        print(target, target_lens)
         ctc_loss = self.ctc(x, x_lens, target, target_lens)
+        # print(target_lens_rate)
+
+        import numpy as np
+        xx = ctc_loss
+        np.save('/home/zhangtianhao/workspace/PaddleSpeech/examples/aishell/asr2/duiqi/paddle_data', xx.cpu().numpy())
+        print(xx)
+        exit()
         return ctc_loss
 
     @paddle.no_grad()

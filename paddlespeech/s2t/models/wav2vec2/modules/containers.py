@@ -121,9 +121,13 @@ class Sequential(paddle.nn.LayerDict):
         x : paddle.Tensor
             The input tensor to run through the network.
         """
-        for layer in self.values():
+        for i, layer in enumerate(self.values()):
             x = layer(x)
             if isinstance(x, tuple):
-                x = x[0]
-
+                x  = x[0]
+            # import numpy as np
+            # print(i)
+            # xx = x
+            # np.save('/home/zhangtianhao/workspace/PaddleSpeech/examples/aishell/asr2/duiqi/paddle_data{}'.format(i), xx.cpu().numpy())
+            # print(xx)
         return x

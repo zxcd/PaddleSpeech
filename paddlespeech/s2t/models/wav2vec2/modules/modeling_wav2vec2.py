@@ -368,9 +368,10 @@ class Wav2Vec2FeatureEncoder(nn.Layer):
 
     def forward(self, input_values):
         hidden_states = input_values[:, None]
+
         for conv_layer in self.conv_layers:
             hidden_states = conv_layer(hidden_states)
-
+              
         return hidden_states
 
 
@@ -384,7 +385,9 @@ class Wav2Vec2FeatureProjection(nn.Layer):
 
     def forward(self, hidden_states):
         # non-projected hidden states are needed for quantization
+        
         norm_hidden_states = self.layer_norm(hidden_states)
+        
         hidden_states = self.projection(norm_hidden_states)
         hidden_states = self.dropout(hidden_states)
         return hidden_states, norm_hidden_states
@@ -1076,6 +1079,7 @@ class Wav2Vec2Model(nn.Layer):
                 extract_features.shape[1], attention_mask, add_adapter=False)
         hidden_states, extract_features = self.feature_projection(
             extract_features)
+
         hidden_states = self._mask_hidden_states(
             hidden_states,
             mask_time_indices=mask_time_indices,
@@ -1089,7 +1093,6 @@ class Wav2Vec2Model(nn.Layer):
             return_dict=return_dict, )
 
         hidden_states = encoder_outputs[0]
-
         if self.adapter is not None:
             hidden_states = self.adapter(hidden_states)
 
@@ -1120,9 +1123,9 @@ class Wav2Vec2ConfigPure():
         self.output_hidden_states = False
         self.use_return_dict = True
 
-        self.pad_token_id = config.pad_token_id
-        self.bos_token_id = config.bos_token_id
-        self.eos_token_id = config.eos_token_id
+        # self.pad_token_id = config.pad_token_id
+        # self.bos_token_id = config.bos_token_id
+        # self.eos_token_id = config.eos_token_id
         self.hidden_size = config.hidden_size
         self.feat_extract_norm = config.feat_extract_norm
         self.feat_extract_activation = config.feat_extract_activation
@@ -1145,7 +1148,7 @@ class Wav2Vec2ConfigPure():
         self.layerdrop = config.layerdrop
         self.layer_norm_eps = config.layer_norm_eps
         self.initializer_range = config.initializer_range
-        self.vocab_size = config.vocab_size
+        # self.vocab_size = config.vocab_size
         self.do_stable_layer_norm = config.do_stable_layer_norm
         self.use_weighted_layer_sum = config.use_weighted_layer_sum
 
@@ -1176,10 +1179,6 @@ class Wav2Vec2ConfigPure():
         self.codevector_dim = config.codevector_dim
         self.proj_codevector_dim = config.proj_codevector_dim
         self.diversity_loss_weight = config.diversity_loss_weight
-
-        # ctc loss
-        self.ctc_loss_reduction = config.ctc_loss_reduction
-        self.ctc_zero_infinity = config.ctc_zero_infinity
 
         # adapter
         self.add_adapter = config.add_adapter

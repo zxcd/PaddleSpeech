@@ -1,24 +1,46 @@
 ############################################
 #          Network Architecture           #
 ############################################
-freeze_wav2vec2: True
+freeze_wav2vec2: False
 normalize_wav: True
 output_norm: True
-dnn_blocks: 2
-dnn_neurons: 1024
-blank_id: 0
-ctc_dropout_rate: 0.0
-wav2vec2_params_path: "exp/wav2vec2/chinese-wav2vec2-large.pdparams"
+init_type: 'kaiming_uniform' # !Warning: need to convergence
+enc:
+  input_shape: 1024
+  dnn_blocks: 3
+  dnn_neurons: 1024
+  activation: True
+  normalization: True
+  dropout_rate: 0.15
+ctc:
+  enc_n_units: 1024
+  blank_id: 0
+  dropout_rate: 0.0
+
+speech_augment:
+  speeds: [90, 100, 100]
+spec_augment:
+  time_warp: True
+  time_warp_window: 5
+  time_warp_mode: bicubic
+  freq_mask: True
+  n_freq_mask: 2
+  time_mask: True
+  n_time_mask: 2
+  replace_with_zero: False
+  freq_mask_width: 30
+  time_mask_width: 40
+wav2vec2_params_path: exp/wav2vec2/chinese-wav2vec2-large.pdparams
 
 ############################################
 #               Wav2Vec2.0                 #
 ############################################
-vocab_size: 32
+# vocab_size: 1000000
 hidden_size: 1024
 num_hidden_layers: 24
 num_attention_heads: 16
 intermediate_size: 4096
-hidden_act: "gelu"
+hidden_act: gelu
 hidden_dropout: 0.1
 activation_dropout: 0.0
 attention_dropout: 0.1
@@ -28,8 +50,8 @@ final_dropout: 0.0
 layerdrop: 0.1
 initializer_range: 0.02
 layer_norm_eps: 1e-5
-feat_extract_norm: "layer"
-feat_extract_activation: "gelu"
+feat_extract_norm: layer
+feat_extract_activation: gelu
 conv_dim: [512, 512, 512, 512, 512, 512, 512]
 conv_stride: [5, 2, 2, 2, 2, 2, 2]
 conv_kernel: [10, 3, 3, 3, 3, 2, 2]
@@ -37,21 +59,21 @@ conv_bias: True
 num_conv_pos_embeddings: 128
 num_conv_pos_embedding_groups: 16
 do_stable_layer_norm: True
-apply_spec_augment: True
-mask_channel_length": 10,
-mask_channel_min_space": 1,
-mask_channel_other": 0.0,
-mask_channel_prob": 0.0,
-mask_channel_selection": "static",
-mask_feature_length": 10,
-mask_feature_min_masks": 0,
-mask_feature_prob": 0.0,
-mask_time_length": 10,
-mask_time_min_masks": 2,
-mask_time_min_space": 1,
-mask_time_other": 0.0,
-mask_time_prob": 0.075,
-mask_time_selection": "static",
+apply_spec_augment: False
+mask_channel_length: 10
+mask_channel_min_space: 1
+mask_channel_other: 0.0
+mask_channel_prob: 0.0
+mask_channel_selection: static
+mask_feature_length: 10
+mask_feature_min_masks: 0
+mask_feature_prob: 0.0
+mask_time_length: 10
+mask_time_min_masks: 2
+mask_time_min_space: 1
+mask_time_other: 0.0
+mask_time_prob: 0.075
+mask_time_selection: static
 num_codevectors_per_group: 320
 num_codevector_groups: 2
 contrastive_logits_temperature: 0.1
@@ -59,12 +81,10 @@ num_negatives: 100
 codevector_dim: 256
 proj_codevector_dim: 256
 diversity_loss_weight: 0.1
-ctc_loss_reduction: "sum"
-ctc_zero_infinity: False
 use_weighted_layer_sum: False
-pad_token_id: 0
-bos_token_id: 1
-eos_token_id: 2
+# pad_token_id: 0
+# bos_token_id: 1
+# eos_token_id: 2
 add_adapter: False
 adapter_kernel_size: 3
 adapter_stride: 2
@@ -74,20 +94,20 @@ output_hidden_size: None
 ###########################################
 #                   Data                  #
 ###########################################
-train_manifest: data/manifest.train
-dev_manifest: data/manifest.dev
-test_manifest: data/manifest.test-clean
+train_manifest: data/manifest_bert_tokenizer.train
+dev_manifest: data/manifest_bert_tokenizer.dev
+test_manifest: data/manifest_bert_tokenizer.test
 
 
 ###########################################
 #              Dataloader                 #
 ###########################################
-vocab_filepath: data/lang_char/vocab.txt 
+vocab_filepath: vocab.txt 
 unit_type: 'char'
-mean_std_filepath: ""
+mean_std_filepath: 
 preprocess_config: conf/preprocess.yaml
 sortagrad: -1 # Feed samples from shortest to longest ; -1: enabled for all epochs 0: disabled other: enabled for 'other' epochs 
-batch_size: 10  # Different batch_size may cause large differences in results
+batch_size: 5  # Different batch_size may cause large differences in results
 maxlen_in: 51200000000  # if input length  > maxlen-in batchsize is automatically reduced
 maxlen_out: 1500000  # if output length > maxlen-out batchsize is automatically reduced
 minibatches: 0 # for debug
@@ -96,7 +116,7 @@ batch_bins: 0
 batch_frames_in: 0
 batch_frames_out: 0
 batch_frames_inout: 0
-num_workers: 0
+num_workers: 4
 subsampling_factor: 1
 num_encs: 1
 dist_sampler: True
@@ -107,22 +127,32 @@ return_lens_rate: True
 ###########################################
 #                 Training                #
 ###########################################
-n_epoch: 1
+n_epoch: 80
 accum_grad: 1
 global_grad_clip: 3.0
 model_optim: adadelta
 model_optim_conf:
-  lr: 0.9
-  epsilon: 1.0e-6
+  lr: 1.0
+  epsilon: 1.0e-8
   rho: 0.95
-scheduler: constantlr    
-scheduler_conf:
-  warmup_steps: 25000
-  lr_decay: 1.0
+wav2vec2_optim: adam
+wav2vec2_optim_conf:
+  lr: 0.0001
+  epsilon: 1.0e-8
+
+model_scheduler: newbobscheduler    
+model_scheduler_conf:
+  improvement_threshold: 0.0025
+  annealing_factor: 0.8
+  patient: 0
+wav2vec2_scheduler: newbobscheduler    
+wav2vec2_scheduler_conf:
+  improvement_threshold: 0.0025
+  annealing_factor: 0.9
+  patient: 0
 log_interval: 1
 checkpoint:
   kbest_n: 50
   latest_n: 5
-augment: True
 
 

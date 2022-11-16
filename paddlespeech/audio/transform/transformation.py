@@ -152,7 +152,6 @@ class Transformation():
         else:
             raise NotImplementedError(
                 "Not supporting mode={}".format(self.conf["mode"]))
-
         if is_batch:
             return xs
         else:
