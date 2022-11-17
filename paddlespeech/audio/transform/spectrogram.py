@@ -390,6 +390,7 @@ class WavProcess():
 
         Returns:
         """
+
     def __call__(self, x):
         """
         Args:
@@ -404,7 +405,7 @@ class WavProcess():
         """
         if x.ndim != 1:
             raise ValueError("Not support x: [Time, Channel]")
-        waveform = x.astype("float32") / 32767
+        waveform = x.astype("float32") / 32768.0
         waveform = np.expand_dims(waveform, -1)
         return waveform
 

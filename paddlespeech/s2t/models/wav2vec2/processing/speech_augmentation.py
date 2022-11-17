@@ -659,47 +659,49 @@ class SpecAugment(paddle.nn.Layer):
     """
 
     def __init__(
-        self,
-        config
-    ):
+            self,
+            time_warp=True,
+            time_warp_window=5,
+            time_warp_mode="bicubic",
+            freq_mask=True,
+            freq_mask_width=(0, 20),
+            n_freq_mask=2,
+            time_mask=True,
+            time_mask_width=(0, 100),
+            n_time_mask=2,
+            replace_with_zero=True, ):
         super().__init__()
-        self.apply_time_warp=getattr(config, "time_warp", True),
-        self.time_warp_window=getattr(config, "time_warp_window", 5)
-        self.time_warp_mode=getattr(config, "time_warp_mode", "bicubic")
-
-        self.freq_mask=getattr(config, "freq_mask", True)
-        self.freq_mask_width=getattr(config, "freq_mask_width", (0, 20))
-        if isinstance(self.freq_mask_width, int):
-            self.freq_mask_width = (0, self.freq_mask_width)
-        self.n_freq_mask=getattr(config, "n_freq_mask", 2)
-        
-        self.time_mask=getattr(config, "time_mask", True)
-        self.time_mask_width=getattr(config, "time_mask_width", (0, 100))
-        if isinstance(self.time_mask_width, int):
-            self.time_mask_width = (0, self.time_mask_width)
-        self.n_time_mask=getattr(config, "n_time_mask", 2)
-
-        self.replace_with_zero=getattr(config, "replace_with_zero", True)
-
         assert (
-            self.apply_time_warp or self.freq_mask or self.time_mask
+            time_warp or freq_mask or time_mask
         ), "at least one of time_warp, time_mask, or freq_mask should be applied"
 
+        self.apply_time_warp = time_warp
+        self.time_warp_window = time_warp_window
+        self.time_warp_mode = time_warp_mode
+
+        self.freq_mask = freq_mask
+        if isinstance(freq_mask_width, int):
+            freq_mask_width = (0, freq_mask_width)
+        self.freq_mask_width = freq_mask_width
+        self.n_freq_mask = n_freq_mask
+
+        self.time_mask = time_mask
+        if isinstance(time_mask_width, int):
+            time_mask_width = (0, time_mask_width)
+        self.time_mask_width = time_mask_width
+        self.n_time_mask = n_time_mask
+
+        self.replace_with_zero = replace_with_zero
 
     def forward(self, x):
         """Takes in input a tensors and returns an augmented one."""
-        print(x)
         if self.apply_time_warp:
             x = self.time_warp(x)
+
         if self.freq_mask:
             x = self.mask_along_axis(x, dim=2)
         if self.time_mask:
             x = self.mask_along_axis(x, dim=1)
-        import numpy as np
-        xx = x
-        np.save('/home/zhangtianhao/workspace/PaddleSpeech/examples/aishell/asr2/duiqi/paddle_data', xx.cpu().numpy())
-        print(xx)
-        exit()
         return x
 
     def time_warp(self, x):
@@ -717,22 +719,20 @@ class SpecAugment(paddle.nn.Layer):
             return x.view(*original_size)
 
         # compute center and corresponding window
-        # c = paddle.randint(window, time - window, (1,))[0]
-        # w = paddle.randint(c - window, c + window, (1,))[0] + 1
-        c = 5
-        w = 10
+        c = paddle.randint(window, time - window, (1, ))[0]
+        w = paddle.randint(c - window, c + window, (1, ))[0] + 1
+        # c = 5
+        # w = 10
         left = paddle.nn.functional.interpolate(
             x[:, :, :c],
             (w, x.shape[3]),
             mode=self.time_warp_mode,
-            align_corners=True,
-        )
+            align_corners=True, )
         right = paddle.nn.functional.interpolate(
             x[:, :, c:],
             (time - w, x.shape[3]),
             mode=self.time_warp_mode,
-            align_corners=True,
-        )
+            align_corners=True, )
 
         x[:, :, :w] = left
         x[:, :, w:] = right
@@ -757,23 +757,23 @@ class SpecAugment(paddle.nn.Layer):
             D = time
             n_mask = self.n_time_mask
             width_range = self.time_mask_width
+            # import numpy as np
+            # mask_len = paddle.to_tensor(np.load('/home/zhangtianhao/workspace/PaddleSpeech/examples/aishell/asr2/duiqi/mask_len1.npy'))
+            # mask_pos = paddle.to_tensor(np.load('/home/zhangtianhao/workspace/PaddleSpeech/examples/aishell/asr2/duiqi/mask_pos1.npy'))
         else:
             D = fea
             n_mask = self.n_freq_mask
             width_range = self.freq_mask_width
+            # import numpy as np
+            # mask_len = paddle.to_tensor(np.load('/home/zhangtianhao/workspace/PaddleSpeech/examples/aishell/asr2/duiqi/mask_len.npy'))
+            # mask_pos = paddle.to_tensor(np.load('/home/zhangtianhao/workspace/PaddleSpeech/examples/aishell/asr2/duiqi/mask_pos.npy'))
 
-        # mask_len = paddle.randint(
-        #     width_range[0], width_range[1], (batch, n_mask)
-        # ).unsqueeze(2)
+        ### 别忘注释掉！！！
+        mask_len = paddle.randint(width_range[0], width_range[1],
+                                  (batch, n_mask)).unsqueeze(2)
 
-        # mask_pos = paddle.randint(
-        #     0, max(1, D - mask_len.max()), (batch, n_mask)
-        # ).unsqueeze(2)
-        import numpy as np
-        mask_len = paddle.to_tensor(np.load('/home/zhangtianhao/workspace/PaddleSpeech/examples/aishell/asr2/duiqi/mask_len.npy'))
-        mask_pos = paddle.to_tensor(np.load('/home/zhangtianhao/workspace/PaddleSpeech/examples/aishell/asr2/duiqi/mask_pos.npy'))
-
-
+        mask_pos = paddle.randint(0, max(1, D - mask_len.max()),
+                                  (batch, n_mask)).unsqueeze(2)
 
         # compute masks
         arange = paddle.arange(end=D).view(1, 1, -1)

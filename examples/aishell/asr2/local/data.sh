@@ -49,40 +49,40 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     fi
 fi
 
-if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
-    # download data, generate manifests
-    # build vocabulary
-    python3 ${MAIN_ROOT}/utils/build_vocab.py \
-    --unit_type="char" \
-    --count_threshold=0 \
-    --vocab_path="${dict_dir}/vocab.txt" \
-    --manifest_paths "data/manifest.train.raw"
+# if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
+#     # download data, generate manifests
+#     # build vocabulary
+#     python3 ${MAIN_ROOT}/utils/build_vocab.py \
+#     --unit_type="char" \
+#     --count_threshold=0 \
+#     --vocab_path="${dict_dir}/vocab.txt" \
+#     --manifest_paths "data/manifest.train.raw"
 
-    if [ $? -ne 0 ]; then
-        echo "Build vocabulary failed. Terminated."
-        exit 1
-    fi
-fi
+#     if [ $? -ne 0 ]; then
+#         echo "Build vocabulary failed. Terminated."
+#         exit 1
+#     fi
+# fi
 
-if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
-    # format manifest with tokenids, vocab size
-    for dataset in train dev test; do
-    {
-        python3 ${MAIN_ROOT}/utils/format_data.py \
-            --cmvn_path "data/mean_std.json" \
-            --unit_type "char" \
-            --vocab_path="${dict_dir}/vocab.txt" \
-            --manifest_path="data/manifest.${dataset}.raw" \
-            --output_path="data/manifest.${dataset}"
+# if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
+#     # format manifest with tokenids, vocab size
+#     for dataset in train dev test; do
+#     {
+#         python3 ${MAIN_ROOT}/utils/format_data.py \
+#             --cmvn_path "data/mean_std.json" \
+#             --unit_type "char" \
+#             --vocab_path="${dict_dir}/vocab.txt" \
+#             --manifest_path="data/manifest.${dataset}.raw" \
+#             --output_path="data/manifest.${dataset}"
 
-        if [ $? -ne 0 ]; then
-            echo "Formt mnaifest failed. Terminated."
-            exit 1
-        fi
-    } &
-    done
-    wait
-fi
+#         if [ $? -ne 0 ]; then
+#             echo "Formt mnaifest failed. Terminated."
+#             exit 1
+#         fi
+#     } &
+#     done
+#     wait
+# fi
 echo "Aishell data preparation done."
 
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then

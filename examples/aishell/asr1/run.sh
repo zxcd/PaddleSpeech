@@ -2,9 +2,9 @@
 source path.sh
 set -e
 
-gpus=0,1,2,3
-stage=0
-stop_stage=50
+gpus=0
+stage=1
+stop_stage=1
 conf_path=conf/conformer.yaml
 ips=            #xx.xx.xx.xx,xx.xx.xx.xx
 decode_conf_path=conf/tuning/decode.yaml

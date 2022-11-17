@@ -94,11 +94,13 @@ output_hidden_size: None
 ###########################################
 #                   Data                  #
 ###########################################
-train_manifest: data/manifest_bert_tokenizer.train
-dev_manifest: data/manifest_bert_tokenizer.dev
-test_manifest: data/manifest_bert_tokenizer.test
+# train_manifest: data/manifest_bert_tokenizer.train
+# dev_manifest: data/manifest_bert_tokenizer.dev
+# test_manifest: data/manifest_bert_tokenizer.test
 
-
+train_manifest: data/manifest.train
+dev_manifest: data/manifest.dev
+test_manifest: data/manifest.dev
 ###########################################
 #              Dataloader                 #
 ###########################################
@@ -106,8 +108,8 @@ vocab_filepath: vocab.txt
 unit_type: 'char'
 mean_std_filepath: 
 preprocess_config: conf/preprocess.yaml
-sortagrad: -1 # Feed samples from shortest to longest ; -1: enabled for all epochs 0: disabled other: enabled for 'other' epochs 
-batch_size: 5  # Different batch_size may cause large differences in results
+sortagrad: -1 # Feed samples from shortest to longest ; -1: enabled for all epochs, 0: disabled, other: enabled for 'other' epochs 
+batch_size: 10  # Different batch_size may cause large differences in results
 maxlen_in: 51200000000  # if input length  > maxlen-in batchsize is automatically reduced
 maxlen_out: 1500000  # if output length > maxlen-out batchsize is automatically reduced
 minibatches: 0 # for debug
@@ -129,12 +131,18 @@ return_lens_rate: True
 ###########################################
 n_epoch: 80
 accum_grad: 1
-global_grad_clip: 3.0
+global_grad_clip: 5.0
 model_optim: adadelta
 model_optim_conf:
   lr: 1.0
   epsilon: 1.0e-8
   rho: 0.95
+  weight_decay: 0.0
+# model_optim: adam
+# model_optim_conf:
+#   lr: 0.01
+#   # epsilon: 1.0e-8
+#   # rho: 0.95
 wav2vec2_optim: adam
 wav2vec2_optim_conf:
   lr: 0.0001
@@ -154,5 +162,3 @@ log_interval: 1
 checkpoint:
   kbest_n: 50
   latest_n: 5
-
-

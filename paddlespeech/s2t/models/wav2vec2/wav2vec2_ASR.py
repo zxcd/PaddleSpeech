@@ -10,11 +10,12 @@ import paddle.nn.functional as F
 from paddlespeech.s2t.models.wav2vec2.modules.modeling_wav2vec2 import Wav2Vec2ConfigPure
 from paddlespeech.s2t.models.wav2vec2.modules.modeling_wav2vec2 import Wav2Vec2Model
 from paddlespeech.s2t.models.wav2vec2.modules.VanillaNN import VanillaNN
+from paddlespeech.s2t.models.wav2vec2.processing.speech_augmentation import SpecAugment
 from paddlespeech.s2t.modules.ctc import CTCDecoderBase as CTC
+from paddlespeech.s2t.modules.initializer import DefaultInitializerContext
 from paddlespeech.s2t.utils.ctc_utils import remove_duplicates_and_blank
 from paddlespeech.s2t.utils.utility import log_add
-from paddlespeech.s2t.models.wav2vec2.processing.speech_augmentation import SpecAugment
-from paddlespeech.s2t.modules.initializer import DefaultInitializerContext
+
 
 class Wav2vec2ASR(nn.Layer):
     def __init__(self, config: dict):
@@ -27,7 +28,7 @@ class Wav2vec2ASR(nn.Layer):
             self.normalize_wav = config.normalize_wav
             self.output_norm = config.output_norm
             if hasattr(config, 'spec_augment'):
-                self.spec_augment = SpecAugment(config.spec_augment)
+                self.spec_augment = SpecAugment(**config.spec_augment)
 
             if config.freeze_wav2vec2:
                 wav2vec2.eval()
@@ -35,7 +36,10 @@ class Wav2vec2ASR(nn.Layer):
                     parm.trainable = False
             self.wav2vec2 = wav2vec2
             self.enc = VanillaNN(**config.enc)
-            self.ctc = CTC(**config.ctc, odim=config.output_dim, batch_average=False, reduction='mean')
+            self.ctc = CTC(**config.ctc,
+                           odim=config.output_dim,
+                           batch_average=False,
+                           reduction='mean')
 
     def forward(self, wav, wavs_lens_rate, target, target_lens):
         if self.normalize_wav:
@@ -43,33 +47,24 @@ class Wav2vec2ASR(nn.Layer):
 
         # Extract wav2vec output
         out = self.wav2vec2(wav)[0]
-        
         # We normalize the output if required
         if self.output_norm:
             out = F.layer_norm(out, out.shape)
-        
-        # if self.training and hasattr(self.config, 'spec_augment'):
-        feats = self.spec_augment(out)
-        # else:
-        #     feats = out
 
+        if self.training and hasattr(self.config, 'spec_augment'):
+            feats = self.spec_augment(out)
+        else:
+            feats = out
         x = self.enc(feats)
 
         x_lens = (wavs_lens_rate * x.shape[1]).round().astype(paddle.int64)
 
         # sb target_lens = rate 
-        target_lens = (target_lens *
-                       target.shape[1]).round().astype(paddle.int64)
-        print(x, x_lens)
-        print(target, target_lens)
+        # target_lens = (target_lens *
+        #                target.shape[1]).round().astype(paddle.int64)
+
         ctc_loss = self.ctc(x, x_lens, target, target_lens)
         # print(target_lens_rate)
-
-        import numpy as np
-        xx = ctc_loss
-        np.save('/home/zhangtianhao/workspace/PaddleSpeech/examples/aishell/asr2/duiqi/paddle_data', xx.cpu().numpy())
-        print(xx)
-        exit()
         return ctc_loss
 
     @paddle.no_grad()
