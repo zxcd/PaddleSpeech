@@ -450,9 +450,6 @@ class Wav2Vec2ASRTrainer(Trainer):
         if not self.train:
             return
 
-        if not self.train:
-            return
-
         train_config = config
         model_optim_type = train_config.model_optim
         model_optim_conf = train_config.model_optim_conf

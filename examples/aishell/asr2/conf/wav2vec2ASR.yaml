@@ -97,14 +97,17 @@ output_hidden_size: None
 # train_manifest: data/manifest_bert_tokenizer.train
 # dev_manifest: data/manifest_bert_tokenizer.dev
 # test_manifest: data/manifest_bert_tokenizer.test
+# vocab_filepath: vocab.txt 
 
 train_manifest: data/manifest.train
 dev_manifest: data/manifest.dev
-test_manifest: data/manifest.dev
+test_manifest: data/manifest.test
+vocab_filepath: data/lang_char/vocab.txt 
+
 ###########################################
 #              Dataloader                 #
 ###########################################
-vocab_filepath: vocab.txt 
+
 unit_type: 'char'
 mean_std_filepath: 
 preprocess_config: conf/preprocess.yaml
