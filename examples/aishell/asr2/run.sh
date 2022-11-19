@@ -4,9 +4,9 @@ set -e
 . ./path.sh || exit 1;
 . ./cmd.sh || exit 1;
 
-gpus=1
-stage=2
-stop_stage=3
+gpus=6
+stage=1
+stop_stage=1
 conf_path=conf/wav2vec2ASR.yaml
 ips=            #xx.xx.xx.xx,xx.xx.xx.xx
 decode_conf_path=conf/tuning/decode.yaml
@@ -18,7 +18,7 @@ resume=         # xx e.g. 30
 audio_file=data/demo_002_en.wav
 
 avg_ckpt=avg_${avg_num}
-ckpt=test_4233
+ckpt=test_singal_4233
 echo "checkpoint name ${ckpt}"
 
 if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then

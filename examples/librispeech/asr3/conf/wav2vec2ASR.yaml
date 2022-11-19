@@ -105,12 +105,13 @@ return_lens_rate: True
 ###########################################
 n_epoch: 1
 accum_grad: 1
-global_grad_clip: 3.0
+global_grad_clip: 5.0
 model_optim: adadelta
 model_optim_conf:
   lr: 0.9
   epsilon: 1.0e-6
   rho: 0.95
+  weight_decay: 0.0
 model_scheduler: constantlr    
 model_scheduler_conf:
   warmup_steps: 25000

@@ -73,7 +73,6 @@ class SpeedPerturb(nn.Layer):
 
         # Don't perturb (return early) 1-`perturb_prob` portion of the batches
         if paddle.rand([1]) > self.perturb_prob:
-
             return waveform.clone()
         # Perform a random perturbation
         self.samp_index = paddle.randint(len(self.speeds), shape=(1, ))[0]
@@ -159,6 +158,7 @@ class Resample(nn.Layer):
             raise ValueError("Input must be 2 or 3 dimensions")
 
         # Do resampling
+
         resampled_waveform = self._perform_resample(waveforms)
 
         if unsqueezed:
@@ -426,6 +426,7 @@ class DropFreq(nn.Layer):
         """
 
         # Don't drop (return early) 1-`drop_prob` portion of the batches
+
         dropped_waveform = waveforms.clone()
         if paddle.rand([1]) > self.drop_prob:
             return dropped_waveform

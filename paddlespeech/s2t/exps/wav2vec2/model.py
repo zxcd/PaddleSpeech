@@ -120,11 +120,6 @@ class Wav2Vec2ASRTrainer(Trainer):
         with context():
             loss.backward()
             # print(loss)
-            # import numpy as np
-            # xx = self.model.wav2vec2.feature_extractor.conv_layers[0].conv.weight.grad
-            # np.save('/home/zhangtianhao/workspace/PaddleSpeech/examples/aishell/asr2/duiqi/paddle_data', xx.cpu().numpy())
-            # print(xx)
-            # exit()
 
             layer_tools.print_grads(self.model, print_func=None)
 

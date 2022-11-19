@@ -4,7 +4,7 @@ set -e
 . ./path.sh || exit 1;
 . ./cmd.sh || exit 1;
 
-gpus=1
+gpus=0
 stage=2
 stop_stage=3
 conf_path=conf/wav2vec2ASR.yaml
@@ -18,7 +18,7 @@ dict_path=data/lang_char/vocab.txt
 audio_file=data/demo_002_en.wav
 
 avg_ckpt=avg_${avg_num}
-ckpt=test_10_1998
+ckpt=right_6_1988
 echo "checkpoint name ${ckpt}"
 
 if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
