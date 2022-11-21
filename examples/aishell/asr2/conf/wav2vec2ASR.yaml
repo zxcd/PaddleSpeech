@@ -19,6 +19,7 @@ ctc:
 
 audio_augment:
   speeds: [90, 100, 110]
+
 spec_augment:
   time_warp: True
   time_warp_window: 5
@@ -133,7 +134,7 @@ return_lens_rate: True
 #                 Training                #
 ###########################################
 n_epoch: 80
-accum_grad: 2
+accum_grad: 1
 global_grad_clip: 5.0
 model_optim: adadelta
 model_optim_conf:

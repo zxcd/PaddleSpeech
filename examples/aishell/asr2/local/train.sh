@@ -22,7 +22,7 @@ fi
 mkdir -p exp
 
 # seed may break model convergence
-seed=10
+seed=1988
 if [ ${seed} != 0 ]; then
     export FLAGS_cudnn_deterministic=True
 fi
