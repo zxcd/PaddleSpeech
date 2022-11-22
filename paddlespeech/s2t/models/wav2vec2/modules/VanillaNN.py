@@ -69,9 +69,16 @@ class VanillaNN(containers.Sequential):
                  dnn_neurons=512,
                  activation=True,
                  normalization=False,
-                 dropout_rate=0.0):
+                 dropout_rate=0.0,):
         super().__init__(input_shape=[None, None, input_shape])
-
+        
+        if not isinstance(dropout_rate, list):
+            dropout_rate = [dropout_rate] * dnn_blocks
+        else:
+            assert len(
+                dropout_rate
+            ) == dnn_blocks, "len(dropout_rate) must equal to dnn_blocks"
+        
         for block_index in range(dnn_blocks):
             self.append(
                 linear.Linear,
@@ -90,4 +97,4 @@ class VanillaNN(containers.Sequential):
             if activation:
                 self.append(paddle.nn.LeakyReLU(), layer_name="act")
             self.append(
-                paddle.nn.Dropout(), p=dropout_rate, layer_name='dropout')
+                paddle.nn.Dropout(p=dropout_rate[block_index]), layer_name='dropout')

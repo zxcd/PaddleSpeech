@@ -18,7 +18,7 @@ dict_path=data/lang_char/vocab.txt
 audio_file=data/demo_002_en.wav
 
 avg_ckpt=avg_${avg_num}
-ckpt=right_6_1988
+ckpt=right_6_1988_rightdp
 echo "checkpoint name ${ckpt}"
 
 if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then

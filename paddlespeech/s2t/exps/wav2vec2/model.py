@@ -59,7 +59,8 @@ class Wav2Vec2ASRTrainer(Trainer):
     def __init__(self, config, args):
         super().__init__(config, args)
         self.avg_train_loss = 0.0
-
+        self.flag = False
+        self.use_sb = False
     def update_average(self, batch_index, loss):
         """Update running average of the loss.
         Arguments
@@ -73,8 +74,8 @@ class Wav2Vec2ASRTrainer(Trainer):
             self.avg_train_loss -= self.avg_train_loss / (batch_index + 1)
             self.avg_train_loss += loss / (batch_index + 1)
         else:
-            import pdb
-            pdb.set_trace()
+            self.flag = True
+            # exit()
             logger.info('loss:{} in Nan or inf, error'.format(loss)) 
     def before_train(self):
         from_scratch = self.resume_or_scratch()
@@ -95,13 +96,17 @@ class Wav2Vec2ASRTrainer(Trainer):
 
         # forward
         ## sb data pipeline
-        wav, wavs_lens_rate = batch['sig']
-        target, target_lens_rate = batch['tokens']
-        target_lens = (target_lens_rate *
-                target.shape[1]).round().astype(paddle.int64)
-        # utt, wav, wavs_lens, target, target_lens = batch
-        # wavs_lens_rate = wavs_lens / wav.shape[1]
-
+        if self.use_sb:
+            wav, wavs_lens_rate = batch['sig']
+            target, target_lens_rate = batch['tokens']
+            target_lens = (target_lens_rate *
+                    target.shape[1]).round().astype(paddle.int64)
+        else:
+            utt, wav, wavs_lens, target, target_lens = batch
+            wavs_lens_rate = wavs_lens / wav.shape[1]
+            wav = wav[:, :, 0]
+            
+        
         #  加载输入和gt 
         # self.model.eval()  ## 用来测试，设置为eval
         # import numpy as np
@@ -113,8 +118,7 @@ class Wav2Vec2ASRTrainer(Trainer):
         # exit()
         # target_lens_rate = target_lens / target.shape[1]
 
-        # wav = wav[:, :, 0]
-
+    
         if hasattr(train_conf, 'audio_augment'):
             wav = self.speech_augmentation(wav, wavs_lens_rate)
 
@@ -189,18 +193,22 @@ class Wav2Vec2ASRTrainer(Trainer):
         num_seen_utts = 1
         total_loss = 0.0
         for i, batch in enumerate(self.valid_loader):
-            wav, wavs_lens_rate = batch['sig']
-            target, target_lens_rate = batch['tokens']
-            target_lens = (target_lens_rate *
-                target.shape[1]).round().astype(paddle.int64)
-            # utt, wav, wavs_lens, target, target_lens = batch
-            # wavs_lens_rate = wavs_lens / wav.shape[1]
-            # # target_lens_rate = target_lens / target.shape[1]
-            # wav = wav[:, :, 0]
+            if self.use_sb:
+                wav, wavs_lens_rate = batch['sig']
+                target, target_lens_rate = batch['tokens']
+                target_lens = (target_lens_rate *
+                    target.shape[1]).round().astype(paddle.int64)
+            else:
+                utt, wav, wavs_lens, target, target_lens = batch
+                wavs_lens_rate = wavs_lens / wav.shape[1]
+                # target_lens_rate = target_lens / target.shape[1]
+                wav = wav[:, :, 0]
+
             loss = self.model(wav, wavs_lens_rate, target, target_lens)
 
             if math.isfinite(float(loss)):
-                num_utts = batch[1].shape[0]
+                # num_utts = batch[1].shape[0]
+                num_utts = wav.shape[0]
                 num_seen_utts += num_utts
                 total_loss += float(loss) * num_utts
                 valid_losses['val_loss'].append(float(loss))
@@ -419,6 +427,7 @@ class Wav2Vec2ASRTrainer(Trainer):
                            self.model_lr_scheduler(),
                            self.wav2vec2_lr_scheduler(), self.avg_train_loss,
                            cv_loss))
+            self.avg_train_loss = 0.0
             self.new_epoch()
 
     def dataio_prepare(self, hparams):
@@ -533,74 +542,79 @@ class Wav2Vec2ASRTrainer(Trainer):
     def setup_dataloader(self):
         config = self.config.clone()
         self.use_streamdata = config.get("use_stream_data", False)
-        # if self.train:
-        #     self.train_loader = DataLoaderFactory.get_dataloader(
-        #         'train', config, self.args)
-        #     self.valid_loader = DataLoaderFactory.get_dataloader(
-        #         'valid', config, self.args)
-        #     logger.info("Setup train/valid Dataloader!")
-        # else:
-        #     decode_batch_size = config.get('decode', dict()).get(
-        #         'decode_batch_size', 1)
-        #     self.test_loader = DataLoaderFactory.get_dataloader('test', config,
-        #                                                         self.args)
-        #     self.align_loader = DataLoaderFactory.get_dataloader(
-        #         'align', config, self.args)
-        #     logger.info("Setup test/align Dataloader!")
+        if self.use_sb:
+            hparams_file = '/home/zhangtianhao/workspace/PaddleSpeech/paddlespeech/s2t/io/wav2vec2/train_with_wav2vec.yaml'
+            with open(hparams_file) as fin:
+                hparams = load_hyperpyyaml(fin, None)
 
-        hparams_file = '/home/zhangtianhao/workspace/PaddleSpeech/paddlespeech/s2t/io/wav2vec2/train_with_wav2vec.yaml'
-        with open(hparams_file) as fin:
-            hparams = load_hyperpyyaml(fin, None)
-
-        (
-            train_data,
-            valid_data,
-            test_data,
-            tokenizer,
-            train_bsampler,
-            valid_bsampler,
-        ) = self.dataio_prepare(hparams)
-
-        train_dataloader_opts = hparams["train_dataloader_opts"]
-        valid_dataloader_opts = hparams["valid_dataloader_opts"]
-
-        if train_bsampler is not None:
-            train_dataloader_opts = {
-                "batch_sampler": train_bsampler,
-                "num_workers": hparams["num_workers"],
-            }
-
-        if valid_bsampler is not None:
-            valid_dataloader_opts = {"batch_sampler": valid_bsampler}
-
-        if self.train:
-            self.train_loader = make_dataloader(
-                train_data, stage='train', **train_dataloader_opts
-            )
-            self.valid_loader = make_dataloader(
+            (
+                train_data,
                 valid_data,
-                stage='val',
-                **valid_dataloader_opts,
-            )
-            logger.info("Setup train/valid Dataloader!")
+                test_data,
+                tokenizer,
+                train_bsampler,
+                valid_bsampler,
+            ) = self.dataio_prepare(hparams)
+
+            train_dataloader_opts = hparams["train_dataloader_opts"]
+            valid_dataloader_opts = hparams["valid_dataloader_opts"]
+
+            if train_bsampler is not None:
+                train_dataloader_opts = {
+                    "batch_sampler": train_bsampler,
+                    "num_workers": hparams["num_workers"],
+                }
+
+            if valid_bsampler is not None:
+                valid_dataloader_opts = {"batch_sampler": valid_bsampler}
+
+            if self.train:
+                self.train_loader = make_dataloader(
+                    train_data, stage='train', **train_dataloader_opts
+                )
+                self.valid_loader = make_dataloader(
+                    valid_data,
+                    stage='val',
+                    **valid_dataloader_opts,
+                )
+                logger.info("Setup train/valid Dataloader!")
+            else:
+                self.test_loader = self.make_dataloader(
+                    test_set, stage='test', **hparams["test_dataloader_opts"]
+                )
         else:
-            self.test_loader = self.make_dataloader(
-                test_set, stage='test', **hparams["test_dataloader_opts"]
-            )
+            if self.train:
+                self.train_loader = DataLoaderFactory.get_dataloader(
+                    'train', config, self.args)
+                self.valid_loader = DataLoaderFactory.get_dataloader(
+                    'valid', config, self.args)
+                logger.info("Setup train/valid Dataloader!")
+            else:
+                decode_batch_size = config.get('decode', dict()).get(
+                    'decode_batch_size', 1)
+                self.test_loader = DataLoaderFactory.get_dataloader('test', config,
+                                                                    self.args)
+                self.align_loader = DataLoaderFactory.get_dataloader(
+                    'align', config, self.args)
+                logger.info("Setup test/align Dataloader!")
+
+        
 
     def setup_model(self):
         config = self.config
         model_conf = config
 
         with UpdateConfig(model_conf):
-            # if self.train:
-            #     model_conf.input_dim = self.train_loader.feat_dim
-            #     model_conf.output_dim = self.train_loader.vocab_size
-            # else:
-            #     model_conf.input_dim = self.test_loader.feat_dim
-            #     model_conf.output_dim = self.test_loader.vocab_size
+            if self.use_sb:
+                model_conf.output_dim = self.tokenizer.vocab_size
+            else:
+                if self.train:
+                    model_conf.input_dim = self.train_loader.feat_dim
+                    model_conf.output_dim = self.train_loader.vocab_size
+                else:
+                    model_conf.input_dim = self.test_loader.feat_dim
+                    model_conf.output_dim = self.test_loader.vocab_size
             
-            model_conf.output_dim = self.tokenizer.vocab_size
 
         model = Wav2vec2ASR.from_config(model_conf)
         model_dict = paddle.load(config.wav2vec2_params_path)
