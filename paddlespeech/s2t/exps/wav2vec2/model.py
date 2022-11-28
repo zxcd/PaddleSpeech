@@ -59,9 +59,11 @@ class Wav2Vec2ASRTrainer(Trainer):
     def __init__(self, config, args):
         super().__init__(config, args)
         self.avg_train_loss = 0.0
+        self.avg_valid_loss = 0.0
         self.flag = False
-        self.use_sb = False
-    def update_average(self, batch_index, loss):
+        self.use_sb = True
+
+    def update_average(self, batch_index, loss, stage='train'):
         """Update running average of the loss.
         Arguments
         ---------
@@ -71,9 +73,13 @@ class Wav2Vec2ASRTrainer(Trainer):
             detached loss, a single float value.
         """
         if math.isfinite(loss):
-            self.avg_train_loss -= self.avg_train_loss / (batch_index + 1)
-            self.avg_train_loss += loss / (batch_index + 1)
-        else:
+            if stage == 'train':
+                self.avg_train_loss -= self.avg_train_loss / (batch_index + 1)
+                self.avg_train_loss += loss / (batch_index + 1)
+            else:
+                self.avg_valid_loss -= self.avg_valid_loss / (batch_index + 1)
+                self.avg_valid_loss += loss / (batch_index + 1)
+        else:    
             self.flag = True
             # exit()
             logger.info('loss:{} in Nan or inf, error'.format(loss)) 
@@ -98,6 +104,8 @@ class Wav2Vec2ASRTrainer(Trainer):
         ## sb data pipeline
         if self.use_sb:
             wav, wavs_lens_rate = batch['sig']
+            print(wav)
+            exit()
             target, target_lens_rate = batch['tokens']
             target_lens = (target_lens_rate *
                     target.shape[1]).round().astype(paddle.int64)
@@ -119,8 +127,8 @@ class Wav2Vec2ASRTrainer(Trainer):
         # target_lens_rate = target_lens / target.shape[1]
 
     
-        if hasattr(train_conf, 'audio_augment'):
-            wav = self.speech_augmentation(wav, wavs_lens_rate)
+        # if hasattr(train_conf, 'audio_augment'):
+        #     wav = self.speech_augmentation(wav, wavs_lens_rate)
 
         loss = self.model(wav, wavs_lens_rate, target, target_lens)
         # loss div by `batch_size * accum_grad`
@@ -153,6 +161,7 @@ class Wav2Vec2ASRTrainer(Trainer):
             if not train_conf.freeze_wav2vec2:
                 self.wav2vec2_optimizer.step()
                 self.wav2vec2_optimizer.clear_grad()
+
             if self.config.model_scheduler != 'newbobscheduler':
                 self.model_lr_scheduler.step()
             if self.config.wav2vec2_scheduler != 'newbobscheduler':
@@ -185,6 +194,8 @@ class Wav2Vec2ASRTrainer(Trainer):
 
     @paddle.no_grad()
     def valid(self):
+        # model_dict = paddle.load('exp/sb_pipeline/checkpoints/avg_1.pdparams')
+        # self.model.set_state_dict(model_dict)
         self.model.eval()
         if not self.use_streamdata:
             logger.info(
@@ -205,6 +216,31 @@ class Wav2Vec2ASRTrainer(Trainer):
                 wav = wav[:, :, 0]
 
             loss = self.model(wav, wavs_lens_rate, target, target_lens)
+            
+            # new
+        #     self.update_average(i, float(loss), stage='valid')
+
+        #     total_loss = self.avg_valid_loss
+        #     valid_losses['val_loss'].append(float(loss))
+
+
+        #     if (i + 1) % self.config.log_interval == 0:
+        #         valid_dump = {k: np.mean(v) for k, v in valid_losses.items()}
+        #         valid_dump['val_history_loss'] = total_loss 
+
+        #         # logging
+        #         msg = f"Valid: Rank: {dist.get_rank()}, "
+        #         msg += "epoch: {}, ".format(self.epoch)
+        #         msg += "step: {}, ".format(self.iteration)
+        #         if not self.use_streamdata:
+        #             msg += "batch: {}/{}, ".format(i + 1,
+        #                                            len(self.valid_loader))
+        #         msg += ', '.join('{}: {:>.6f}'.format(k, v)
+        #                          for k, v in valid_dump.items())
+        #         logger.info(msg)
+        # self.avg_valid_loss = 0.0
+        # logger.info('Rank {} Val info val_loss {}'.format(
+        #     dist.get_rank(), total_loss))
 
             if math.isfinite(float(loss)):
                 # num_utts = batch[1].shape[0]
@@ -334,6 +370,7 @@ class Wav2Vec2ASRTrainer(Trainer):
             logger.info("Init from scratch!")
         return scratch
 
+
     def do_train(self):
         """The training process control by step."""
         # !!!IMPORTANT!!!
@@ -428,6 +465,7 @@ class Wav2Vec2ASRTrainer(Trainer):
                            self.wav2vec2_lr_scheduler(), self.avg_train_loss,
                            cv_loss))
             self.avg_train_loss = 0.0
+            self.step = 0
             self.new_epoch()
 
     def dataio_prepare(self, hparams):
@@ -579,8 +617,8 @@ class Wav2Vec2ASRTrainer(Trainer):
                 )
                 logger.info("Setup train/valid Dataloader!")
             else:
-                self.test_loader = self.make_dataloader(
-                    test_set, stage='test', **hparams["test_dataloader_opts"]
+                self.test_loader = make_dataloader(
+                    test_data, stage='test', **hparams["test_dataloader_opts"]
                 )
         else:
             if self.train:
@@ -680,23 +718,23 @@ class Wav2Vec2ASRTrainer(Trainer):
         model_optimizer_args = optimizer_args(config, model_optim_type,
                                               model_optim_conf, [{
                                                   'params':
-                                                  model._layers.enc.parameters()
+                                                  self.model._layers.enc.parameters()
                                               }, {
                                                   'params':
-                                                  model._layers.ctc.parameters()
+                                                  self.model._layers.ctc.parameters()
                                               }] if self.parallel else [{
                                                   'params':
-                                                  model.enc.parameters()
+                                                  self.model.enc.parameters()
                                               }, {
                                                   'params':
-                                                  model.ctc.parameters()
+                                                  self.model.ctc.parameters()
                                               }], model_lr_scheduler)
         # model_optimizer_args = optimizer_args(config, model_optim_type, model_optim_conf,
         #                                       [*model._layers.enc.parameters(), *model._layers.ctc.parameters()] if self.parallel else [*model.enc.parameters(), *model.ctc.parameters()], model_lr_scheduler)
         wav2vec2_optimizer_args = optimizer_args(
             config, wav2vec2_optim_type, wav2vec2_optim_conf,
-            model._layers.wav2vec2.parameters() if self.parallel else
-            model.wav2vec2.parameters(), wav2vec2_lr_scheduler)
+            self.model._layers.wav2vec2.parameters() if self.parallel else
+            self.model.wav2vec2.parameters(), wav2vec2_lr_scheduler)
         model_optimizer = OptimizerFactory.from_args(model_optim_type,
                                                      model_optimizer_args)
         wav2vec2_optimizer = OptimizerFactory.from_args(wav2vec2_optim_type,
@@ -774,6 +812,56 @@ class Wav2Vec2ASRTester(Wav2Vec2ASRTrainer):
             num_frames=audio_len.sum().numpy().item(),
             decode_time=decode_time)
 
+
+    def sb_compute_metrics(self,
+                        id,
+                        sig,
+                        wrd,
+                        tokens,
+                        fout=None):
+        decode_cfg = self.config.decode
+        errors_sum, len_refs, num_ins = 0.0, 0, 0
+        errors_func = error_rate.char_errors if decode_cfg.error_rate_type == 'cer' else error_rate.word_errors
+        error_rate_func = error_rate.cer if decode_cfg.error_rate_type == 'cer' else error_rate.wer
+        start_time = time.time()
+        target_transcripts = wrd
+        result_transcripts, result_tokenids = self.model.decode(
+            sig[0],
+            text_feature=self.tokenizer,
+            decoding_method=decode_cfg.decoding_method,
+            beam_size=decode_cfg.beam_size,
+            sb_pipeline=True)
+        decode_time = time.time() - start_time
+
+        for utt, target, result, rec_tids in zip(
+                id, target_transcripts, result_transcripts, result_tokenids):
+            print(target, result)
+            errors, len_ref = errors_func(target, result)
+            errors_sum += errors
+            len_refs += len_ref
+            num_ins += 1
+            if fout:
+                fout.write({
+                    "utt": utt,
+                    "refs": [target],
+                    "hyps": [result],
+                    "hyps_tokenid": [rec_tids],
+                })
+            logger.info(f"Utt: {utt}")
+            logger.info(f"Ref: {target}")
+            logger.info(f"Hyp: {result}")
+            logger.info("One example error rate [%s] = %f" % (
+                decode_cfg.error_rate_type, error_rate_func(target, result)))
+
+        return dict(
+            errors_sum=errors_sum,
+            len_refs=len_refs,
+            num_ins=num_ins,  # num examples
+            error_rate=errors_sum / len_refs,
+            error_rate_type=decode_cfg.error_rate_type,
+            num_frames=sig[1].sum().numpy().item(),
+            decode_time=decode_time)
+
     @mp_tools.rank_zero_only
     @paddle.no_grad()
     def test(self):
@@ -791,7 +879,10 @@ class Wav2Vec2ASRTester(Wav2Vec2ASRTrainer):
 
         with jsonlines.open(self.args.result_file, 'w') as fout:
             for i, batch in enumerate(self.test_loader):
-                metrics = self.compute_metrics(*batch, fout=fout)
+                if self.use_sb:
+                    metrics = self.sb_compute_metrics(**batch, fout=fout)
+                else:
+                    metrics = self.compute_metrics(*batch, fout=fout)
                 num_frames += metrics['num_frames']
                 num_time += metrics["decode_time"]
                 errors_sum += metrics['errors_sum']

@@ -7,6 +7,11 @@ import paddle
 import paddle.nn as nn
 import paddle.nn.functional as F
 
+from hyperpyyaml import load_hyperpyyaml
+from paddlespeech.s2t.models.wav2vec2.modules.containers import Sequential
+from paddlespeech.s2t.models.wav2vec2.modules import normalization
+from paddlespeech.s2t.models.wav2vec2.modules import linear
+
 from paddlespeech.s2t.models.wav2vec2.modules.modeling_wav2vec2 import Wav2Vec2ConfigPure
 from paddlespeech.s2t.models.wav2vec2.modules.modeling_wav2vec2 import Wav2Vec2Model
 from paddlespeech.s2t.models.wav2vec2.modules.VanillaNN import VanillaNN
@@ -15,7 +20,6 @@ from paddlespeech.s2t.modules.ctc import CTCDecoderBase as CTC
 from paddlespeech.s2t.modules.initializer import DefaultInitializerContext
 from paddlespeech.s2t.utils.ctc_utils import remove_duplicates_and_blank
 from paddlespeech.s2t.utils.utility import log_add
-
 
 class Wav2vec2ASR(nn.Layer):
     def __init__(self, config: dict):
@@ -27,15 +31,31 @@ class Wav2vec2ASR(nn.Layer):
             wav2vec2 = Wav2Vec2Model(wav2vec2_config)
             self.normalize_wav = config.normalize_wav
             self.output_norm = config.output_norm
-            if hasattr(config, 'spec_augment'):
-                self.spec_augment = SpecAugment(**config.spec_augment)
+            # if hasattr(config, 'spec_augment'):
+            #     self.spec_augment = SpecAugment(**config.spec_augment)
 
             if config.freeze_wav2vec2:
                 wav2vec2.eval()
                 for parm in wav2vec2.parameters():
                     parm.trainable = False
             self.wav2vec2 = wav2vec2
-            self.enc = VanillaNN(**config.enc)
+            # self.enc = VanillaNN(**config.enc)
+            # enc_conf = config.enc
+            # enc_dict = {'input_shape': [None, None, enc_conf.input_shape],
+            #             'linear1': linear.Linear(n_neurons=enc_conf.dnn_neurons),
+            #             'bn1': normalization.BatchNorm1d(),
+            #             'activation': paddle.nn.LeakyReLU(),
+            #             'drop': paddle.nn.Dropout(p=enc_conf.dropout_rate),
+            #             'linear2': linear.Linear(n_neurons=enc_conf.dnn_neurons),
+            #             'bn2': normalization.BatchNorm1d(),
+            #             'activation2': paddle.nn.LeakyReLU(),
+            #             'drop2': paddle.nn.Dropout(p=enc_conf.dropout_rate),
+            #             'linear3': linear.Linear(n_neurons=enc_conf.dnn_neurons),
+            #             'bn3': normalization.BatchNorm1d(),
+            #             'activation3': paddle.nn.LeakyReLU(),}
+            with open('/home/zhangtianhao/workspace/PaddleSpeech/examples/aishell/asr2/conf/enc.yaml') as fin:
+                hparams = load_hyperpyyaml(fin)
+            self.enc = hparams['enc']
             self.ctc = CTC(**config.ctc,
                            odim=config.output_dim,
                            batch_average=False,
@@ -51,10 +71,10 @@ class Wav2vec2ASR(nn.Layer):
         if self.output_norm:
             out = F.layer_norm(out, out.shape)
 
-        if self.training and hasattr(self.config, 'spec_augment'):
-            feats = self.spec_augment(out)
-        else:
-            feats = out
+        # if self.training and hasattr(self.config, 'spec_augment'):
+        #     feats = self.spec_augment(out)
+        # else:
+        feats = out
         x = self.enc(feats)
 
         x_lens = (wavs_lens_rate * x.shape[1]).round().astype(paddle.int64)
@@ -72,7 +92,8 @@ class Wav2vec2ASR(nn.Layer):
                feats: paddle.Tensor,
                text_feature: Dict[str, int],
                decoding_method: str,
-               beam_size: int):
+               beam_size: int,
+               sb_pipeline=False):
         batch_size = feats.shape[0]
 
         if decoding_method == 'ctc_prefix_beam_search' and batch_size > 1:
@@ -83,9 +104,36 @@ class Wav2vec2ASR(nn.Layer):
             sys.exit(1)
 
         if decoding_method == 'ctc_greedy_search':
-            hyps = self.ctc_greedy_search(feats)
-            res = [text_feature.defeaturize(hyp) for hyp in hyps]
-            res_tokenids = [hyp for hyp in hyps]
+            if not sb_pipeline:
+                hyps = self.ctc_greedy_search(feats)
+                res = [text_feature.defeaturize(hyp) for hyp in hyps]
+                res_tokenids = [hyp for hyp in hyps]
+            else:
+                hyps = self.ctc_greedy_search(feats.unsqueeze(-1))
+                
+                res = []
+                res_tokenids = []
+                for sequence in hyps:
+                    # Decode token terms to words
+                    predicted_tokens = text_feature.convert_ids_to_tokens(
+                        sequence
+                    )
+
+                    tmp_res = []
+                    tmp_res_tokenids = []
+                    for c in predicted_tokens:
+                        if c == "[CLS]":
+                            continue
+                        elif c == "[SEP]" or c == "[PAD]":
+                            break
+                        else:
+                            tmp_res.append(c)
+                            tmp_res_tokenids.append(text_feature.vocab[c])
+                    # print(predicted_words)
+                    # exit()
+                    res.append(''.join(tmp_res))
+                    res_tokenids.append(tmp_res_tokenids)
+
         # ctc_prefix_beam_search and attention_rescoring only return one
         # result in List[int], change it to List[List[int]] for compatible
         # with other batch decoding mode

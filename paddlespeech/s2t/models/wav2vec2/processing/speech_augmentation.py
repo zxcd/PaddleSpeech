@@ -426,7 +426,6 @@ class DropFreq(nn.Layer):
         """
 
         # Don't drop (return early) 1-`drop_prob` portion of the batches
-
         dropped_waveform = waveforms.clone()
         if paddle.rand([1]) > self.drop_prob:
             return dropped_waveform
@@ -452,6 +451,7 @@ class DropFreq(nn.Layer):
         # Start with delta function
         drop_filter = paddle.zeros([1, filter_length, 1])
         drop_filter[0, pad, 0] = 1
+
         # Subtract each frequency
         for frequency in drop_frequency:
             notch_kernel = notch_filter(

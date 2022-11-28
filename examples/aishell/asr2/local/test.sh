@@ -31,7 +31,7 @@ python3 utils/format_rsl.py \
 
 for type in ctc_greedy_search; do
     echo "decoding ${type}"
-    batch_size=16
+    batch_size=1
     python3 -u ${BIN_DIR}/test.py \
         --ngpu ${ngpu} \
         --config ${config_path} \
@@ -50,7 +50,7 @@ for type in ctc_greedy_search; do
         --trans_hyp ${ckpt_prefix}.${type}.rsl.text
 
     python3 utils/compute-wer.py --char=1 --v=1 \
-        data/manifest.test-clean.text ${ckpt_prefix}.${type}.rsl.text > ${ckpt_prefix}.${type}.error
+        data/manifest.test.text ${ckpt_prefix}.${type}.rsl.text > ${ckpt_prefix}.${type}.error
     echo "decoding ${type} done."
 done
 

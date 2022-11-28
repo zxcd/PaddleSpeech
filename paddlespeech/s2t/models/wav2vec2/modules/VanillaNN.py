@@ -98,3 +98,4 @@ class VanillaNN(containers.Sequential):
                 self.append(paddle.nn.LeakyReLU(), layer_name="act")
             self.append(
                 paddle.nn.Dropout(p=dropout_rate[block_index]), layer_name='dropout')
+

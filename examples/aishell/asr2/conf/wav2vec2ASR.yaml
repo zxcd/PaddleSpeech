@@ -11,7 +11,7 @@ enc:
   dnn_neurons: 1024
   activation: True
   normalization: True
-  dropout_rate: [0.15, 0.15, 0.0]
+  dropout_rate: 0.15
 ctc:
   enc_n_units: 1024
   blank_id: 0
