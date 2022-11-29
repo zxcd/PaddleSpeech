@@ -61,7 +61,7 @@ class Wav2Vec2ASRTrainer(Trainer):
         self.avg_train_loss = 0.0
         self.avg_valid_loss = 0.0
         self.flag = False
-        self.use_sb = True
+        self.use_sb = False
 
     def update_average(self, batch_index, loss, stage='train'):
         """Update running average of the loss.
@@ -104,8 +104,6 @@ class Wav2Vec2ASRTrainer(Trainer):
         ## sb data pipeline
         if self.use_sb:
             wav, wavs_lens_rate = batch['sig']
-            print(wav)
-            exit()
             target, target_lens_rate = batch['tokens']
             target_lens = (target_lens_rate *
                     target.shape[1]).round().astype(paddle.int64)
