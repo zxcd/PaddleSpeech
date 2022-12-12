@@ -1,0 +1,22 @@
+wav2vec_output_dim: 1024
+dnn_neurons: 1024
+dropout: 0.15
+
+enc: !new:paddlespeech.s2t.models.wav2vec2.modules.containers.Sequential
+   input_shape: [null, null, !ref <wav2vec_output_dim>]
+   linear1: !name:paddlespeech.s2t.models.wav2vec2.modules.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+   bn1: !name:paddlespeech.s2t.models.wav2vec2.modules.normalization.BatchNorm1d
+   activation: !new:paddle.nn.LeakyReLU
+   drop: !new:paddle.nn.Dropout
+      p: !ref <dropout>
+   linear2: !name:paddlespeech.s2t.models.wav2vec2.modules.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+   bn2: !name:paddlespeech.s2t.models.wav2vec2.modules.normalization.BatchNorm1d
+   activation2: !new:paddle.nn.LeakyReLU
+   drop2: !new:paddle.nn.Dropout
+      p: !ref <dropout>
+   linear3: !name:paddlespeech.s2t.models.wav2vec2.modules.linear.Linear
+      n_neurons: !ref <dnn_neurons>
+   bn3: !name:paddlespeech.s2t.models.wav2vec2.modules.normalization.BatchNorm1d
+   activation3: !new:paddle.nn.LeakyReLU
