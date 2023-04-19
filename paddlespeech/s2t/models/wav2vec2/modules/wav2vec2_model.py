@@ -1218,19 +1218,18 @@ class Fp32LayerNorm(nn.LayerNorm):
 class Fp32GroupNorm(nn.GroupNorm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-    def forward(self, input):
-        group_norm = paddle.nn.GroupNorm(
+        self.group_norm = paddle.nn.GroupNorm(
             num_channels=self._num_groups, 
             num_groups=self._num_groups, 
             weight_attr=True if self.weight is not None else None,
             bias_attr=True if self.bias is not None else None,
             epsilon=self._epsilon,
             )
-        group_norm.weight_attr = self.weight.astype('float32')
-        group_norm.bias_attr = self.bias.astype('float32')
+        self.group_norm.weight_attr = self.weight.astype('float32')
+        self.group_norm.bias_attr = self.bias.astype('float32')
 
-        output = group_norm(input.astype('float32'))
+    def forward(self, input):
+        output = self.group_norm(input.astype('float32'))
         return output.astype(input.dtype)
 
 
