@@ -17,7 +17,7 @@ import os
 import numpy as np
 from paddle import inference
 from paddle.audio.datasets import ESC50
-from paddle.audio.features import MelSpectrogram
+from paddle.audio.features import LogMelSpectrogram
 from paddleaudio.backends import soundfile_load as load_audio
 from scipy.special import softmax
 
@@ -53,7 +53,10 @@ def extract_features(files: str, **kwargs):
             pad_width = max_length - len(waveforms[i])
             waveforms[i] = np.pad(waveforms[i], pad_width=(0, pad_width))
 
-        feat = MelSpectrogram(waveforms[i], sr, **kwargs).transpose()
+        feature_extractor = LogMelSpectrogram(sr, **kwargs)
+        feat = feature_extractor(paddle.to_tensor(waveforms[i]))
+        feat = paddle.transpose(feat, perm=[1, 0]).unsqueeze(0)
+
         feats.append(feat)
 
     return np.stack(feats, axis=0)
