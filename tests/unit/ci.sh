@@ -26,6 +26,11 @@ function main(){
   cd ${speech_ci_path}/cli
   bash test_cli.sh
   echo "End cli"
+
+  echo "Start server"
+  cd ${speech_ci_path}/server/offline
+  bash test_server_client.sh
+  echo "End server"
 }
 
 main
