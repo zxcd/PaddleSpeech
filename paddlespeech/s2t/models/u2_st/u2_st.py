@@ -176,7 +176,7 @@ class U2STBaseModel(nn.Layer):
         # 2. Compute attention loss
         loss_att = self.criterion_att(decoder_out, ys_out_pad)
         acc_att = th_accuracy(
-            decoder_out.view(-1, self.vocab_size),
+            decoder_out.reshape([-1, self.vocab_size]),
             ys_out_pad,
             ignore_label=self.ignore_id, )
         return loss_att, acc_att
@@ -209,7 +209,7 @@ class U2STBaseModel(nn.Layer):
         # 2. Compute attention loss
         loss_att = self.criterion_att(decoder_out, ys_out_pad)
         acc_att = th_accuracy(
-            decoder_out.view(-1, self.vocab_size),
+            decoder_out.reshape([-1, self.vocab_size]),
             ys_out_pad,
             ignore_label=self.ignore_id, )
         return loss_att, acc_att

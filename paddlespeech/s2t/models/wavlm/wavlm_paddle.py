@@ -297,8 +297,8 @@ class WavLM(nn.Layer):
         extra = padding_mask.size(1) % features.size(1)
         if extra > 0:
             padding_mask = padding_mask[:, :-extra]
-        padding_mask = padding_mask.view(
-            padding_mask.size(0), features.size(1), -1)
+        padding_mask = padding_mask.reshape(
+            [padding_mask.size(0), features.size(1), -1])
         padding_mask = padding_mask.all(-1)
         return padding_mask
 
@@ -475,14 +475,15 @@ class ConvFeatureExtractionModel(nn.Layer):
                 else:
                     x = conv(x)
             x = x.transpose([0, 1, 3, 2]).contiguous()
-            x = x.view(x.size(0), -1, x.size(-1))
+            x = x.reshape([x.size(0), -1, x.size(-1)])
         else:
             for conv in self.conv_layers:
                 x = conv(x)
             if self.conv_type == "conv2d":
                 b, c, t, f = x.size()
-                # x = x.transpose(2, 3).contiguous().view(b, c * f, t)
-                x = x.transpose([0, 1, 3, 2]).contiguous().view(b, c * f, t)
+                # x = x.transpose(2, 3).contiguous().reshape([b, c * f, t])
+                x = x.transpose([0, 1, 3, 2]).contiguous().reshape(
+                    [b, c * f, t])
         return x
 
 
