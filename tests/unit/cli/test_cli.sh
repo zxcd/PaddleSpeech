@@ -6,6 +6,8 @@ echo -e "\e[1;31monly if you see 'Test success !!!', the cli testing is successf
 wget -c https://paddlespeech.bj.bcebos.com/PaddleAudio/cat.wav https://paddlespeech.bj.bcebos.com/PaddleAudio/dog.wav
 paddlespeech cls --input ./cat.wav --topk 10
 
+ffmpeg -i ./cat.wav
+
 # Punctuation_restoration
 paddlespeech text --input 今天的天气真不错啊你下午有空吗我想约你一起去吃饭 --model ernie_linear_p3_wudao_fast
 
