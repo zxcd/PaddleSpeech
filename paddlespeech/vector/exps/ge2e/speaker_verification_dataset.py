@@ -39,7 +39,12 @@ class MultiSpeakerMelDataset(Dataset):
 
     def __init__(self, dataset_root: Path):
         self.root = Path(dataset_root).expanduser()
-        speaker_dirs = [f for f in self.root.glob("*") if f.is_dir()]
+        speaker_dirs = []
+        for f in self.root.glob("*"):
+            if f.is_dir():
+                assert list(f.glob(
+                    "*.npy")), "This folder NOT includes any npy data file."
+                speaker_dirs.append(f)
 
         speaker_utterances = {
             speaker_dir: list(speaker_dir.glob("*.npy"))
