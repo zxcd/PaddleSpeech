@@ -69,8 +69,13 @@ class Embedding(nn.Embedding):
                  name=None):
         if weight_attr is None:
             weight_attr = paddle.ParamAttr(initializer=nn.initializer.Normal())
-        super(Embedding, self).__init__(num_embeddings, embedding_dim,
-                                        padding_idx, sparse, weight_attr, name)
+        super(Embedding, self).__init__(
+            num_embeddings=num_embeddings,
+            embedding_dim=embedding_dim,
+            padding_idx=padding_idx,
+            sparse=sparse,
+            weight_attr=weight_attr,
+            name=name)
 
 
 class Linear(nn.Linear):
