@@ -1,0 +1,6 @@
+ffmpeg-python
+ffmpy
+flatten_dict
+pyloudnorm
+pytest
+rich
