@@ -11,11 +11,11 @@ import numpy as np
 import paddle
 import pytest
 
-from audio import audiotools
-from audio.audiotools import AudioSignal
-from audio.audiotools import util
-from audio.audiotools.data import transforms as tfm
-from audio.audiotools.data.datasets import AudioDataset
+from paddlespeech import audiotools
+from paddlespeech.audiotools import AudioSignal
+from paddlespeech.audiotools import util
+from paddlespeech.audiotools.data import transforms as tfm
+from paddlespeech.audiotools.data.datasets import AudioDataset
 from paddlespeech.vector.training.seeding import seed_everything
 
 non_deterministic_transforms = ["TimeNoise", "FrequencyNoise"]
@@ -197,7 +197,7 @@ def test_compose_filtering():
         for _ in range(10):
             _muls = np.random.choice(muls, size=s, replace=False).tolist()
             full_mul = np.prod(_muls)
-            with transform.filter(*[str(x) for x in _muls]):
+            with transform.filter(* [str(x) for x in _muls]):
                 output = transform(signal.clone(), **kwargs)
 
             expected_output = signal.audio_data * full_mul
